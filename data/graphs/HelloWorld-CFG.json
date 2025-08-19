@@ -1,0 +1,30 @@
+{
+  "directed": true,
+  "multigraph": true,
+  "label": "CFG of HelloWorld.java",
+  "type": "Control Flow Graph (CFG)",
+  "file": "HelloWorld.java",
+  "package": "test_java_files",
+
+  "nodes": [
+    {
+      "id": 0,
+      "line": 5,
+      "label": "void main(String[] args)"
+    },
+    {
+      "id": 1,
+      "line": 6,
+      "label": "System.out.println('Hello, World!')"
+    }
+  ],
+
+  "edges": [
+    {
+      "id": 0,
+      "source": 0,
+      "target": 1,
+      "label": ""
+    }
+  ]
+}
