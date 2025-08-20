@@ -1,3 +1,7 @@
 transformers
 torch
 huggingface-hub
+numpy
+pandas
+tqdm
+scikit-learn
