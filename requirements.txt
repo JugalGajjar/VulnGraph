@@ -3,8 +3,10 @@ torch
 huggingface-hub
 numpy
 pandas
+matplotlib
 tqdm
 scikit-learn
 torch_geometric
 gensim
 networkx
+joblib
