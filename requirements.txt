@@ -10,3 +10,4 @@ torch_geometric
 gensim
 networkx
 joblib
+ipykernel
