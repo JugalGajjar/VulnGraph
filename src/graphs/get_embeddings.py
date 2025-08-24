@@ -5,15 +5,16 @@ Build graph embeddings for Java CFGs with:
 - Training objective: node-feature denoising (unsupervised)
 Saves graph-level embeddings to data/embeddings/graph/*.npz
 
-Usage:
+Example Usage:
     python src/graphs/get_embeddings.py \
-        --csv data/dataset.csv \
+        --csv data/csv/cleaned_data_with_cfg.csv \
         --out_dir data/embeddings/graph \
         --epochs 10 \
         --batch_size 4
 """
 
 import os
+import ast
 import json
 import argparse
 import numpy as np
@@ -52,7 +53,15 @@ class GraphCodeBERTEmbedder:
 # CFG -> PyG Data
 def cfg_to_data(cfg_json: str, embedder: GraphCodeBERTEmbedder):
     """Convert a single CFG (JSON string) into a PyG Data object with x, edge_index, y(optional)"""
-    cfg = cfg_json if isinstance(cfg_json, dict) else json.loads(cfg_json)
+    if isinstance(cfg_json, dict):
+        cfg = cfg_json
+    else:
+        try:
+            # Try strict JSON first
+            cfg = json.loads(cfg_json)
+        except json.JSONDecodeError:
+            # Fallback: interpret as Python dict string
+            cfg = ast.literal_eval(cfg_json)
 
     # Node texts
     node_texts = [n.get("label", "") for n in cfg.get("nodes", [])]
@@ -123,10 +132,13 @@ class DenoiseHead(nn.Module):
 # Training loop (unsupervised denoising)
 def train_encoder(encoder, head, loader, epochs=10, lr=1e-3, device="cpu"):
     encoder.train()
+    encoder.to(device)
     head.train()
+    head.to(device)
     params = list(encoder.parameters()) + list(head.parameters())
     opt = torch.optim.Adam(params, lr=lr, weight_decay=1e-4)
 
+    print("Starting training...")
     for epoch in range(1, epochs + 1):
         total_loss = 0.0
         for batch_data in loader:
@@ -146,6 +158,7 @@ def train_encoder(encoder, head, loader, epochs=10, lr=1e-3, device="cpu"):
 
         avg = total_loss / len(loader.dataset)
         print(f"[Epoch {epoch:02d}] Denoise MSE: {avg:.6f}")
+    print("Training complete.")
 
 # Extract & Save Embeddings
 @torch.no_grad()
@@ -174,7 +187,7 @@ def main():
     ap.add_argument("--csv", required=True, help="Path to CSV with columns id,code,cfg,label")
     ap.add_argument("--out_dir", default="data/embeddings/graph", help="Output directory for .npz")
     ap.add_argument("--model_out", default="models/graph_encoder.pt", help="(Optional) save encoder weights")
-    ap.add_argument("--batch_size", type=int, default=4)
+    ap.add_argument("--batch_size", type=int, default=8)
     ap.add_argument("--epochs", type=int, default=10)
     ap.add_argument("--hidden_dim", type=int, default=256)
     ap.add_argument("--emb_dim", type=int, default=128)
@@ -213,16 +226,20 @@ def main():
         data.gid = torch.tensor([gid], dtype=torch.long)
         graphs.append(data)
 
+    print("Loading data into DataLoader...")
     loader = DataLoader(graphs, batch_size=args.batch_size, shuffle=True)
 
     # Create encoder & denoising head
+    print("Initializing GraphSAGE encoder and denoising head...")
     encoder = GraphSAGEEncoder(in_dim=768, hidden_dim=args.hidden_dim, out_dim=args.emb_dim).to(device)
     head = DenoiseHead(emb_dim=args.emb_dim, out_dim=768).to(device)
 
     # Train encoder (unsupervised)
+    print("Training encoder with node-feature denoising...")
     train_encoder(encoder, head, loader, epochs=args.epochs, lr=args.lr, device=device)
 
     # Extract graph embeddings (with *clean* inputs)
+    print("Extracting graph embeddings...")
     clean_loader = DataLoader(graphs, batch_size=args.batch_size, shuffle=False)
     graph_embs, ids, labels = extract_graph_embeddings(encoder, clean_loader, device=device)
 
@@ -231,7 +248,7 @@ def main():
     np.savez_compressed(out_path, ids=ids, labels=labels, embeddings=graph_embs)
     print(f"Saved graph embeddings to: {out_path}")
 
-    # Save encoder weights (optional)
+    # Save encoder weights
     torch.save({"encoder_state_dict": encoder.state_dict(),
                 "in_dim": 768, "hidden_dim": args.hidden_dim, "out_dim": args.emb_dim},
                args.model_out)
