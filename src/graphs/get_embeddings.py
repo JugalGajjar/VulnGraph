@@ -7,7 +7,7 @@ Saves graph-level embeddings to data/embeddings/graph/*.npz
 
 Example Usage:
     python src/graphs/get_embeddings.py \
-        --csv data/csv/cleaned_data_with_cfg.csv \
+        --dataset data/parquet/cleaned_data_with_cfg.parquet \
         --out_dir data/embeddings/graph \
         --epochs 10 \
         --batch_size 4
@@ -184,7 +184,7 @@ def extract_graph_embeddings(encoder, loader, device="cpu"):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--csv", required=True, help="Path to CSV with columns id,code,cfg,label")
+    ap.add_argument("--dataset", required=True, help="Path to dataset with columns id,code,cfg,label")
     ap.add_argument("--out_dir", default="data/embeddings/graph", help="Output directory for .npz")
     ap.add_argument("--model_out", default="models/graph_encoder.pt", help="(Optional) save encoder weights")
     ap.add_argument("--batch_size", type=int, default=8)
@@ -205,12 +205,12 @@ def main():
         device = "cpu"
     print(f"Using device: {device}")
 
-    # Load CSV
-    df = pd.read_csv(args.csv)
+    # Load Dataset
+    df = pd.read_parquet(args.dataset)
     required = {"id", "code", "cfg", "label"}
     missing = required - set(df.columns)
     if missing:
-        raise ValueError(f"CSV missing columns: {missing}")
+        raise ValueError(f"Data missing columns: {missing}")
 
     embedder = GraphCodeBERTEmbedder(device=device)
 
