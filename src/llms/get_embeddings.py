@@ -1,12 +1,12 @@
 """
-Generate embeddings for Java code snippets using an LLM.
-Saves embeddings and labels to a .npz file for training/eval.
+Generate embeddings for Java code snippets using multiple LLMs.
+Saves embeddings and labels to a .npz file for each model.
+
+Data format: id, code, cfg, label
 
 Example Usage:
-    python src/llms/get_embeddings.py \
-        --dataset data/raw/java_snippets.csv \
-        --out data/embeddings/qwen2.5_train_embeddings.npz \
-        --model Qwen/Qwen2.5-Coder-3B-Instruct \
+    python src/llms/get_embeddings.py --dataset data/parquet/cleaned_data_with_cfg.parquet \
+        --out_dir data/embeddings/llm \
         --batch_size 8 \
         --max_length 1024
 
@@ -34,9 +34,11 @@ def get_device():
 
 
 def load_model_and_tokenizer(model_name: str, device: torch.device):
+    print(f"[INFO] Loading model & tokenizer: {model_name} ...")
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
     model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
     model.eval()
+    print(f"[INFO] Model loaded on device: {device}")
     return tokenizer, model
 
 
@@ -45,7 +47,9 @@ def embed_batch(tokenizer, model, texts: List[str], device: torch.device, max_le
     Tokenize and run model to extract embeddings.
     Uses mean pooling over hidden states (excluding padding).
     """
-    enc = tokenizer(texts, return_tensors="pt", padding=True, truncation=True, max_length=max_length)
+    enc = tokenizer(
+        texts, return_tensors="pt", padding=True, truncation=True, max_length=max_length
+    )
     input_ids = enc["input_ids"].to(device)
     attention_mask = enc["attention_mask"].to(device)
 
@@ -53,15 +57,13 @@ def embed_batch(tokenizer, model, texts: List[str], device: torch.device, max_le
         outputs = model(
             input_ids=input_ids,
             attention_mask=attention_mask,
-            output_hidden_states=True,  # request hidden states
+            output_hidden_states=True,
             return_dict=True
         )
-
-        # Use the last hidden layer
-        last_hidden = outputs.hidden_states[-1]   # (batch, seq_len, hidden_dim)
+        last_hidden = outputs.hidden_states[-1]  # (batch, seq_len, hidden_dim)
 
         # Masked mean pooling
-        mask = attention_mask.unsqueeze(-1)       # (batch, seq_len, 1)
+        mask = attention_mask.unsqueeze(-1)  # (batch, seq_len, 1)
         masked = last_hidden * mask
         summed = masked.sum(dim=1)
         lengths = mask.sum(dim=1).clamp(min=1e-9)
@@ -69,46 +71,45 @@ def embed_batch(tokenizer, model, texts: List[str], device: torch.device, max_le
         return pooled.cpu().numpy()
 
 
-
-def generate_embeddings(csv_path: str, out_path: str, model_name: str, batch_size: int, max_length: int):
+def generate_embeddings_for_models(data_path: str, out_dir: str, models: List[str], batch_size: int, max_length: int):
     device = get_device()
     print(f"[INFO] Using device: {device}")
 
-    tokenizer, model = load_model_and_tokenizer(model_name, device)
-    print(f"[INFO] Loaded model & tokenizer: {model_name}")
+    print(f"[INFO] Loading dataset: {data_path} ...")
+    df = pd.read_parquet(data_path)
+    assert "code" in df.columns and "label" in df.columns, "Dataset must contain 'code' and 'label' columns."
+    print(f"[INFO] Total samples in dataset: {len(df)}")
 
-    df = pd.read_csv(csv_path)
-    assert "code" in df.columns and "label" in df.columns, "CSV must contain 'code' and 'label' columns."
-
-    all_embs, all_labels, all_ids = [], [], []
     texts = df["code"].astype(str).tolist()
     labels = df["label"].astype(int).tolist()
-    ids = df.get("id", pd.Series(range(len(df)))).tolist()
+    ids = df["id"].tolist()
 
-    for i in tqdm(range(0, len(texts), batch_size), desc="Embedding batches"):
-        batch_texts = texts[i:i + batch_size]
-        batch_ids = ids[i:i + batch_size]
-        batch_labels = labels[i:i + batch_size]
+    os.makedirs(out_dir, exist_ok=True)
 
-        emb = embed_batch(tokenizer, model, batch_texts, device, max_length=max_length)
-        all_embs.append(emb)
-        all_labels.extend(batch_labels)
-        all_ids.extend(batch_ids)
+    for model_name in models:
+        print(f"\n[INFO] Generating embeddings for model: {model_name} ...")
+        tokenizer, model = load_model_and_tokenizer(model_name, device)
+        all_embs = []
 
-    all_embs = np.vstack(all_embs)
-    all_labels = np.array(all_labels, dtype=np.int64)
-    all_ids = np.array(all_ids)
+        for i in tqdm(range(0, len(texts), batch_size), desc="Embedding batches"):
+            batch_texts = texts[i:i + batch_size]
+            emb = embed_batch(tokenizer, model, batch_texts, device, max_length=max_length)
+            all_embs.append(emb)
 
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    np.savez_compressed(out_path, embeddings=all_embs, labels=all_labels, ids=all_ids)
-    print(f"[INFO] Saved embeddings to {out_path} (shape={all_embs.shape})")
+        all_embs = np.vstack(all_embs)
+        all_labels = np.array(labels, dtype=np.int64)
+        all_ids = np.array(ids)
+
+        print(f"[INFO] Embedding dimensions for {model_name}: {all_embs.shape} (num_samples, feature_size)")
+
+        model_safe_name = model_name.split("/")[-1].replace("-", "_")
+        out_path = os.path.join(out_dir, f"{model_safe_name}_embeddings.npz")
+        np.savez_compressed(out_path, embeddings=all_embs, labels=all_labels, ids=all_ids)
+        print(f"[INFO] Saved embeddings to {out_path}")
 
 
 def test_dummy_code():
-    """
-    Sanity check: load dummy.java and generate embeddings from all models.
-    """
-    dummy_file = "data/raw/HelloWorld.java"
+    dummy_file = input("Enter path to dummy.java file for testing: ").strip()
     assert os.path.exists(dummy_file), f"Missing test file: {dummy_file}"
 
     dummy_code = open(dummy_file).read()
@@ -132,9 +133,8 @@ def test_dummy_code():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", type=str, help="CSV file with columns: id, code, label")
-    parser.add_argument("--out", type=str, help="Output .npz path")
-    parser.add_argument("--model", type=str, help="Hugging Face model name or local path")
+    parser.add_argument("--dataset", type=str, required=True, help="Data file with columns: id, code, cfg, label")
+    parser.add_argument("--out_dir", type=str, default="data/embeddings/llm", help="Output directory for embeddings")
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--max_length", type=int, default=1024)
     parser.add_argument("--test", action="store_true", help="Run dummy test mode")
@@ -143,5 +143,11 @@ if __name__ == "__main__":
     if args.test:
         test_dummy_code()
     else:
-        assert args.dataset and args.out and args.model, "Must provide --dataset, --out, and --model"
-        generate_embeddings(args.dataset, args.out, args.model, args.batch_size, args.max_length)
+        selected_models = [
+            "deepseek-ai/deepseek-coder-1.3b-instruct",
+            "Qwen/Qwen2.5-Coder-3B-Instruct",
+            "stabilityai/stable-code-instruct-3b",
+            "microsoft/Phi-3.5-mini-instruct"
+        ]
+
+        generate_embeddings_for_models(args.dataset, args.out_dir, selected_models, args.batch_size, args.max_length)
