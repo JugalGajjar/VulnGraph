@@ -101,4 +101,3 @@ MIT License – free to use and modify with attribution.
 - Jugal Gajjar
 - Kaustik Ranaware
 - Kamalasankari Subramaniakuppusamy
-- Relsy Puthal
