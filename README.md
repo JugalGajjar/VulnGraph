@@ -80,7 +80,7 @@ pip install -r requirements.txt
 
 ## Datasets
 
-Our work utilizes more than **35,000 Java code samples**, consisting of both safe and vulnerable code files. These were collected and curated from multiple sources, as shown below:
+Our work utilizes more than 35,000 Java code samples, consisting of both safe and vulnerable code files. These were collected and curated from multiple sources, as shown below:
 
 | Dataset                                                          | Code Files |
 | ---------------------------------------------------------------- | ---------- |
@@ -88,16 +88,16 @@ Our work utilizes more than **35,000 Java code samples**, consisting of both saf
 | Kaggle Vulnerability Fixes Dataset                               | 35,000     |
 | Kaggle CVE Fixes (Java code files extracted)                     | 1,162      |
 | Synthetic Java Code Files (all safe, to prevent class imbalance) | 6,000      |
-| **Total (before cleaning)**                                      | **42,425** |
+| Total (before cleaning)                                          | 42,425     |
 
 ---
 
 ### After Cleaning
 
-After cleaning and preprocessing the code samples, we obtained a total of **35,610 error-free, CFG-executable Java code files**, consisting of:
+After cleaning and preprocessing the code samples, we obtained a total of 35,610 error-free, CFG-executable Java code files, consisting of:
 
-- **29,376 vulnerable files**
-- **6,234 safe files**
+- 29,376 vulnerable files
+- 6,234 safe files
 
 This final cleaned dataset was curated from the three original sources along with additional synthetic safe code files. The inclusion of synthetic safe samples helps prevent class imbalance and ensures that the model does not overfit to vulnerable patterns alone.
 
