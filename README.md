@@ -80,8 +80,6 @@ pip install -r requirements.txt
 
 ## Datasets
 
-## Datasets
-
 Our work utilizes more than **35,000 Java code samples**, consisting of both safe and vulnerable code files. These were collected and curated from multiple sources, as shown below:
 
 | Dataset                                                          | Code Files |
@@ -135,9 +133,8 @@ MIT License – free to use and modify with attribution.
 
 - Jugal Gajjar
 - Kaustik Ranaware
-<<<<<<< HEAD
+  <<<<<<< HEAD
 - Kamalasankari Subramaniakuppusamy
-- Relsy Puthal
-=======
+- # Relsy Puthal
 - Kamalasankari Subramaniakuppusamy
->>>>>>> 108751145ee404df8c242111436b2a016d7034af
+  > > > > > > > 108751145ee404df8c242111436b2a016d7034af
