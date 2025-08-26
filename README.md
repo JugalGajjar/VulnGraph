@@ -27,12 +27,13 @@ VulnGraph/
 │── data/ # Datasets (Java vulnerable & safe code samples)
 │ ├── raw/ # Raw Java source files
 │ ├── graphs/ # PROGEX-extracted program graphs
-│ └── processed/ # Graph embeddings ready for model input
+│ └── embeddings/ # Graph/LLM embeddings ready for model input
 │
 │── src/ # Core source code
 │ ├── progex_parser/ # Scripts for invoking PROGEX and exporting graphs
-│ ├── embeddings/ # GNN models (GCN/Node2Vec)
-│ ├── llm_integration/ # Hybrid GNN + LLM pipeline
+│ ├── graphs/ # GNN scripts
+│ ├── llms/ # LLMs scripts
+│ ├── graph_llm_integration/ # Hybrid GNN + LLM pipeline
 │ └── training/ # Training scripts and evaluation
 │
 │── notebooks/ # Jupyter notebooks for experiments
@@ -134,5 +135,9 @@ MIT License – free to use and modify with attribution.
 
 - Jugal Gajjar
 - Kaustik Ranaware
+<<<<<<< HEAD
 - Kamalasankari Subramaniakuppusamy
 - Relsy Puthal
+=======
+- Kamalasankari Subramaniakuppusamy
+>>>>>>> 108751145ee404df8c242111436b2a016d7034af

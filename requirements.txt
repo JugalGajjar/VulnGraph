@@ -1,0 +1,16 @@
+transformers
+torch
+huggingface-hub
+numpy
+pandas
+matplotlib
+seaborn
+plotly
+tqdm
+scikit-learn
+torch_geometric
+gensim
+networkx
+joblib
+ipykernel
+umap-learn
