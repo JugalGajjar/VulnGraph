@@ -133,8 +133,4 @@ MIT License – free to use and modify with attribution.
 
 - Jugal Gajjar
 - Kaustik Ranaware
-  <<<<<<< HEAD
 - Kamalasankari Subramaniakuppusamy
-- # Relsy Puthal
-- Kamalasankari Subramaniakuppusamy
-  > > > > > > > 108751145ee404df8c242111436b2a016d7034af
