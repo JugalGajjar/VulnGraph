@@ -292,7 +292,7 @@ def main():
     # Create encoder & denoising head
     # print("Initializing GraphSAGE encoder and denoising head...")
     # encoder = GraphSAGEEncoder(in_dim=768, hidden_dim=args.hidden_dim, out_dim=args.emb_dim).to(device)
-    print("Initializing GCN encoder and denoising head...")
+    # print("Initializing GCN encoder and denoising head...")
     # encoder = GCNEncoder(in_dim=768, hidden_dim=args.hidden_dim, out_dim=args.emb_dim).to(device)
     print("Initializing GAT encoder and denoising head...")
     encoder = GATEncoder(in_dim=768, hidden_dim=args.hidden_dim, out_dim=args.emb_dim, heads=4).to(device)
