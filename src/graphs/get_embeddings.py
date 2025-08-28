@@ -27,7 +27,8 @@ from transformers import RobertaTokenizer, RobertaModel
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 # from torch_geometric.nn import SAGEConv, global_mean_pool
-from torch_geometric.nn import GraphConv, global_mean_pool
+# from torch_geometric.nn import GraphConv, global_mean_pool
+from torch_geometric.nn import GATConv, global_mean_pool
 
 # Embeddings: GraphCodeBERT
 class GraphCodeBERTEmbedder:
@@ -117,34 +118,34 @@ def cfg_to_data(cfg_json: str, embedder: GraphCodeBERTEmbedder):
 #         return node_emb, graph_emb
 
 # Graph Encoder (GCN)
-class GCNEncoder(nn.Module):
-    def __init__(self, in_dim=768, hidden_dim=256, out_dim=128, dropout=0.1):
-        super().__init__()
-        self.conv1 = GraphConv(in_dim, hidden_dim)
-        self.conv2 = GraphConv(hidden_dim, hidden_dim)
-        self.conv3 = GraphConv(hidden_dim, out_dim)
-        self.dropout = nn.Dropout(dropout)
-        self.norm1 = nn.LayerNorm(hidden_dim)
-        self.norm2 = nn.LayerNorm(hidden_dim)
-        self.norm3 = nn.LayerNorm(out_dim)
+# class GCNEncoder(nn.Module):
+#     def __init__(self, in_dim=768, hidden_dim=256, out_dim=128, dropout=0.1):
+#         super().__init__()
+#         self.conv1 = GraphConv(in_dim, hidden_dim)
+#         self.conv2 = GraphConv(hidden_dim, hidden_dim)
+#         self.conv3 = GraphConv(hidden_dim, out_dim)
+#         self.dropout = nn.Dropout(dropout)
+#         self.norm1 = nn.LayerNorm(hidden_dim)
+#         self.norm2 = nn.LayerNorm(hidden_dim)
+#         self.norm3 = nn.LayerNorm(out_dim)
 
-    def forward(self, x, edge_index, batch):
-        x = self.conv1(x, edge_index)
-        x = self.norm1(F.relu(x))
-        x = self.dropout(x)
+#     def forward(self, x, edge_index, batch):
+#         x = self.conv1(x, edge_index)
+#         x = self.norm1(F.relu(x))
+#         x = self.dropout(x)
 
-        x = self.conv2(x, edge_index)
-        x = self.norm2(F.relu(x))
-        x = self.dropout(x)
+#         x = self.conv2(x, edge_index)
+#         x = self.norm2(F.relu(x))
+#         x = self.dropout(x)
 
-        x = self.conv3(x, edge_index)
-        x = self.norm3(x)
+#         x = self.conv3(x, edge_index)
+#         x = self.norm3(x)
 
-        node_emb = x
-        graph_emb = global_mean_pool(node_emb, batch)
-        return node_emb, graph_emb
+#         node_emb = x
+#         graph_emb = global_mean_pool(node_emb, batch)
+#         return node_emb, graph_emb
 
-# Denoising Head (unsupervised training)
+# # Denoising Head (unsupervised training)
 class DenoiseHead(nn.Module):
     """Decode node embeddings back to original feature space (768) and match x_orig."""
     def __init__(self, emb_dim=128, out_dim=768):
@@ -157,6 +158,36 @@ class DenoiseHead(nn.Module):
 
     def forward(self, node_emb):
         return self.decoder(node_emb)
+
+# Graph Encoder (GAT)
+class GATEncoder(nn.Module):
+    def __init__(self, in_dim=768, hidden_dim=256, out_dim=128, heads=4, dropout=0.1):
+        super().__init__()
+        # multi-head attention
+        self.conv1 = GATConv(in_dim, hidden_dim // heads, heads=heads, dropout=dropout)
+        self.conv2 = GATConv(hidden_dim, hidden_dim // heads, heads=heads, dropout=dropout)
+        self.conv3 = GATConv(hidden_dim, out_dim // heads, heads=heads, dropout=dropout)
+        self.dropout = nn.Dropout(dropout)
+        self.norm1 = nn.LayerNorm(hidden_dim)
+        self.norm2 = nn.LayerNorm(hidden_dim)
+        self.norm3 = nn.LayerNorm(out_dim)
+
+    def forward(self, x, edge_index, batch):
+        x = self.conv1(x, edge_index)
+        x = self.norm1(F.elu(x))
+        x = self.dropout(x)
+
+        x = self.conv2(x, edge_index)
+        x = self.norm2(F.elu(x))
+        x = self.dropout(x)
+
+        x = self.conv3(x, edge_index)
+        x = self.norm3(x)
+
+        node_emb = x
+        graph_emb = global_mean_pool(node_emb, batch)
+        return node_emb, graph_emb
+
 
 # Training loop (unsupervised denoising)
 def train_encoder(encoder, head, loader, epochs=10, lr=1e-3, device="cpu"):
@@ -214,8 +245,8 @@ def extract_graph_embeddings(encoder, loader, device="cpu"):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dataset", required=True, help="Path to dataset with columns id,code,cfg,label")
-    ap.add_argument("--out_dir", default="data/embeddings/graph", help="Output directory for .npz")
-    ap.add_argument("--model_out", default="models/graph_encoder.pt", help="(Optional) save encoder weights")
+    ap.add_argument("--out_dir", default="data/embeddings", help="Output directory for .npz")
+    ap.add_argument("--model_out", default="models/graph_encoder_gcb+gat.pt", help="(Optional) save encoder weights")
     ap.add_argument("--batch_size", type=int, default=8)
     ap.add_argument("--epochs", type=int, default=10)
     ap.add_argument("--hidden_dim", type=int, default=256)
@@ -262,7 +293,9 @@ def main():
     # print("Initializing GraphSAGE encoder and denoising head...")
     # encoder = GraphSAGEEncoder(in_dim=768, hidden_dim=args.hidden_dim, out_dim=args.emb_dim).to(device)
     print("Initializing GCN encoder and denoising head...")
-    encoder = GCNEncoder(in_dim=768, hidden_dim=args.hidden_dim, out_dim=args.emb_dim).to(device)
+    # encoder = GCNEncoder(in_dim=768, hidden_dim=args.hidden_dim, out_dim=args.emb_dim).to(device)
+    print("Initializing GAT encoder and denoising head...")
+    encoder = GATEncoder(in_dim=768, hidden_dim=args.hidden_dim, out_dim=args.emb_dim, heads=4).to(device)
     head = DenoiseHead(emb_dim=args.emb_dim, out_dim=768).to(device)
 
     # Train encoder (unsupervised)
@@ -275,7 +308,7 @@ def main():
     graph_embs, ids, labels = extract_graph_embeddings(encoder, clean_loader, device=device)
 
     # Save embeddings
-    out_path = os.path.join(args.out_dir, "graph_embeddings.npz")
+    out_path = os.path.join(args.out_dir, "graph_embeddings_gcb+gat.npz")
     np.savez_compressed(out_path, ids=ids, labels=labels, embeddings=graph_embs)
     print(f"Saved graph embeddings to: {out_path}")
 
