@@ -6,7 +6,7 @@ Data format: id, code, cfg, label
 
 Example Usage:
     python src/llms/get_embeddings.py --dataset data/parquet/cleaned_data_with_cfg.parquet \
-        --out_dir data/embeddings/llm \
+        --out_dir data/embeddings \
         --batch_size 8 \
         --max_length 1024
 
@@ -134,8 +134,8 @@ def test_dummy_code():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, required=True, help="Data file with columns: id, code, cfg, label")
-    parser.add_argument("--out_dir", type=str, default="data/embeddings/llm", help="Output directory for embeddings")
-    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--out_dir", type=str, default="data/embeddings/", help="Output directory for embeddings")
+    parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--max_length", type=int, default=1024)
     parser.add_argument("--test", action="store_true", help="Run dummy test mode")
     args = parser.parse_args()
