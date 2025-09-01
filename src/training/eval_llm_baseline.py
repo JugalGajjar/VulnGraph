@@ -159,6 +159,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--parquet", required=True, help="Path to parquet file containing columns: id, code, label")
     parser.add_argument("--test_frac", type=float, default=0.1)
+    parser.add_argument("--sample", action="store_true", help="Whether to sample 250 examples from test set (200 pos, 50 neg)")
     parser.add_argument("--batch_size", type=int, default=16, help="Batch size for LLM evaluation")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
@@ -175,20 +176,24 @@ if __name__ == "__main__":
         codes, labels, test_size=args.test_frac, random_state=args.seed, stratify=labels
     )
 
-    # Sample 50 examples from test set: 40 with label=1 and 10 with label=0
-    pos_indices = [i for i, label in enumerate(y_test) if label == 1]
-    neg_indices = [i for i, label in enumerate(y_test) if label == 0]
+    if args.sample:
+        # Sample 250 examples from test set: 200 with label=1 and 50 with label=0
+        pos_indices = [i for i, label in enumerate(y_test) if label == 1]
+        neg_indices = [i for i, label in enumerate(y_test) if label == 0]
 
-    import random
-    random.seed(args.seed)
-    sampled_pos = random.sample(pos_indices, min(40, len(pos_indices)))
-    sampled_neg = random.sample(neg_indices, min(10, len(neg_indices)))
+        import random
+        random.seed(args.seed)
+        sampled_pos = random.sample(pos_indices, min(200, len(pos_indices)))
+        sampled_neg = random.sample(neg_indices, min(50, len(neg_indices)))
 
-    sampled_indices = sampled_pos + sampled_neg
-    random.shuffle(sampled_indices)  # shuffle to mix pos and neg
+        sampled_indices = sampled_pos + sampled_neg
+        random.shuffle(sampled_indices)  # shuffle to mix pos and neg
 
-    X_test_sampled = [X_test[i] for i in sampled_indices]
-    y_test_sampled = y_test.iloc[sampled_indices]
+        X_test_sampled = [X_test[i] for i in sampled_indices]
+        y_test_sampled = y_test.iloc[sampled_indices]
+    else:
+        X_test_sampled = X_test
+        y_test_sampled = y_test
 
     all_metrics = []
     for model_name in MODELS:
