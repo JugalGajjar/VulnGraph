@@ -113,6 +113,56 @@ This final cleaned dataset was curated from the three original sources along wit
 
 ## Running the Pipeline
 
+Once dependencies are installed and datasets are prepared, the full VulnGraph pipeline can be executed in stages:
+
+1. **Graph Embedding**<br>
+   Generate structural embeddings with GAT / GraphSAGE / GCN / Node2Vec (uncomment the encoder you want to use):
+   ```bash
+   python src/graphs/get_embeddings.py \
+        --dataset data/parquet/cleaned_data_with_cfg.parquet \
+        --out_dir data/embeddings \
+        --epochs 10 \
+        --batch_size 4
+   ```
+2. **Download the LLMs**<br>
+   Add your HF token and download the LLMs you wish to use by commenting others out:
+   ```bash
+   python src/llms/download_llms.py
+   ```
+
+3. **LLM Embedding**<br>
+   Extract semantic embeddings from code using the chosen LLM:
+   ```bash
+   python src/llms/get_embeddings.py --dataset data/parquet/cleaned_data_with_cfg.parquet \
+        --out_dir data/embeddings \
+        --batch_size 8 \
+        --max_length 1024
+   ```
+   NOTE: This can take anywhere between 1 hour and 1 week depending on the compute power you have to generate embeddings for all LLMs.
+
+4. **Hybrid Training**<br>
+   Fuse graph and LLM embeddings, then train the classifier:
+   ```bash
+   python -m src.training.train_pipeline \
+    --graph_npz data/embeddings/graph_embeddings_gcb+gat.npz \
+    --llm_npz data/embeddings/deepseek_coder_1.3b_instruct_embeddings.npz \
+    --parquet data/parquet/cleaned_data_with_cfg.parquet \
+    --out models/fusion_2way_llm_gcb+gat.pt \
+    --fusion two_way
+   ```
+
+5. **Evaluation**<br>
+   Evaluate performance on the cleaned dataset:
+   ```bash
+   python -m src.training.eval_pipeline \
+    --graph_npz data/embeddings/graph_embeddings_gcb+gat.npz \
+    --llm_npz data/embeddings/deepseek_coder_1.3b_instruct_embeddings.npz \
+    --checkpoint models/fusion_2way_llm_gcb+gat.pt \
+    --out_dir results/fusion_2way_llm_gcb+gat \
+    --generate_llm_explanations deepseek-ai/deepseek-coder-1.3b-instruct \
+    --fusion two_way
+   ```
+
 ---
 
 ## Paper
