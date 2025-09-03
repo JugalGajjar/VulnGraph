@@ -1,6 +1,6 @@
 # VulnGraph
 
-**Paper Title:** Graph-Augmented Language Models for Software Vulnerability Detection
+**Paper Title:** Bridging Semantics & Structure for Software Vulnerability Detection using Hybrid Network Models
 
 VulnGraph is a research project exploring the integration of graph neural networks (GNNs) and large language models (LLMs) for vulnerability detection in Java code. The system represents Java code as Abstract Syntax Trees (ASTs) and Control Flow Graphs (CFGs) using [PROGEX](https://github.com/ghaffarian/progex), learns graph embeddings, and augments them with LLM-based reasoning for detecting subtle semantic vulnerabilities.
 
@@ -168,7 +168,7 @@ Once dependencies are installed and datasets are prepared, the full VulnGraph pi
 ## Paper
 
 This repository supports the research paper:  
-**"Graph-Augmented Language Models for Software Vulnerability Detection"**  
+**"Bridging Semantics & Structure for Software Vulnerability Detection using Hybrid Network Models"**  
 Contribution: Hybridizing structural program graphs and semantic code reasoning for accurate vulnerability detection in Java code files.
 
 ---
